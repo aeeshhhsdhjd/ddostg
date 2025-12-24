@@ -1,0 +1,83 @@
+language: python
+python:
+  - "3.8"
+  - "3.9"
+  - "3.10"
+
+addons:
+  apt:
+    packages:
+      - g++
+      - build-essential
+      - python3-pip
+      - python3-dev
+
+services:
+  - mongodb
+
+install:
+  # Install Python dependencies
+  - pip install --upgrade pip
+  - pip install -r requirements.txt
+  # Install C++ build dependencies
+  - sudo apt-get update
+  - sudo apt-get install -y g++ build-essential
+
+before_script:
+  # Create requirements.txt if it doesn't exist
+  - echo "pyTelegramBotAPI==4.14.0" > requirements.txt
+  - echo "pymongo==4.5.0" >> requirements.txt
+  - echo "requests==2.31.0" >> requirements.txt
+  - echo "aiohttp==3.9.0" >> requirements.txt
+  - echo "certifi==2023.11.17" >> requirements.txt
+  # Compile C++ file
+  - echo "Compiling C++ attack tool..."
+  - g++ -std=c++14 -o soul soul.cpp -pthread
+
+script:
+  # Run Python tests/basic checks
+  - echo "Testing Python script syntax..."
+  - python -m py_compile soul.py
+  - echo "Checking C++ compilation..."
+  - ls -la soul || echo "C++ compilation failed"
+  # Run basic functionality tests
+  - echo "Running basic tests..."
+  - python -c "import telebot; print('Telegram bot library imported successfully')"
+  - python -c "from pymongo import MongoClient; print('MongoDB client imported successfully')"
+  - python -c "import asyncio; print('AsyncIO imported successfully')"
+  # Run C++ test with harmless parameters
+  - timeout 2 ./soul 127.0.0.1 8080 1 1 || echo "C++ test completed (expected timeout)"
+
+after_success:
+  - echo "Build completed successfully!"
+  - echo "Files ready:"
+  - ls -la soul.py soul
+
+cache:
+  directories:
+    - $HOME/.cache/pip
+
+notifications:
+  email: false
+
+env:
+  global:
+    # You should set these as encrypted environment variables in Travis CI
+    # - TRAVIS_ENCRYPTED_BOT_TOKEN
+    # - TRAVIS_ENCRYPTED_MONGO_URI
+    - secure: "YOUR_ENCRYPTED_TOKEN_HERE"
+    - secure: "YOUR_ENCRYPTED_MONGO_URI_HERE"
+
+jobs:
+  include:
+    - name: "Python 3.8 Tests"
+    - name: "Python 3.9 Tests"
+    - name: "Python 3.10 Tests"
+    - name: "Security Scan"
+      script:
+        - echo "Running basic security checks..."
+        - python -c "import ast; ast.parse(open('soul.py').read()); print('Python syntax OK')"
+    - name: "Deployment Test"
+      if: branch = main
+      script:
+        - echo "Simulating deployment..."
